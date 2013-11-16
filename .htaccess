@@ -1,0 +1,11 @@
+# Friendly URL
+Options +FollowSymlinks
+RewriteEngine On
+
+# Redirecting to public html
+RewriteRule ^(.*)$ public/$1 [QSA,L]
+
+# Setup php values
+php_value session.save_path "data/session"
+php_value sys_temp_dir "data/temp"
+php_value upload_tmp_dir "data/upload"
