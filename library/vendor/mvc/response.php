@@ -21,42 +21,24 @@ class Response
             'xml' => array('application/xml', 'text/xml'),
             'rss' => 'application/rss+xml',
             'bin' => 'application/octet-stream',
-            'csv' => array(
-                'text/csv',
-                'application/vnd.ms-excel',
-                'text/plain'
-            ),
-            'doc' => 'application/msword',
-            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'csv' => 'text/csv',
             'eot' => 'application/vnd.ms-fontobject',
             'flv' => 'video/x-flv',
             'gtar' => 'application/x-gtar',
             'gz' => 'application/x-gzip',
             'bz2' => 'application/x-bzip',
-            '7z' => 'application/x-7z-compressed',
             'ico' => 'image/x-icon',
             'js' => 'application/javascript',
             'latex' => 'application/x-latex',
             'otf' => 'font/otf',
             'pdf' => 'application/pdf',
             'pgn' => 'application/x-chess-pgn',
-            'pot' => 'application/vnd.ms-powerpoint',
-            'pps' => 'application/vnd.ms-powerpoint',
-            'ppt' => 'application/vnd.ms-powerpoint',
-            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'ppz' => 'application/vnd.ms-powerpoint',
             'svg' => 'image/svg+xml',
             'svgz' => 'image/svg+xml',
             'swf' => 'application/x-shockwave-flash',
             'tar' => 'application/x-tar',
             'ttc' => 'font/ttf',
             'ttf' => 'font/ttf',
-            'xlc' => 'application/vnd.ms-excel',
-            'xll' => 'application/vnd.ms-excel',
-            'xlm' => 'application/vnd.ms-excel',
-            'xls' => 'application/vnd.ms-excel',
-            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'xlw' => 'application/vnd.ms-excel',
             'zip' => 'application/zip',
             'mp3' => 'audio/mpeg',
             'mpga' => 'audio/mpeg',
@@ -173,17 +155,17 @@ class Response
             504 => 'Gateway Time-out'
         );
 
-    private $headers = array();
-    private $body = '';
-    private $statusCode = 200;
+    private $_headers = array();
+    private $_body = '';
+    private $_statusCode = 200;
 
     public function body($content = null)
     {
         if (!isset($content)) {
-            return $this->body;
+            return $this->_body;
         }
 
-        $this->body = $content;
+        $this->_body = $content;
 
         return $this;
     }
@@ -193,8 +175,8 @@ class Response
         if (!is_int($time)) {
             $time = strtotime($time);
         }
-        $this->headers['Cache-Control'] = 'public';
-        $this->headers['Date'] = gmdate("D, j M Y G:i:s ") . 'GMT';
+        $this->_headers['Cache-Control'] = 'public';
+        $this->_headers['Date'] = gmdate("D, j M Y G:i:s ") . 'GMT';
         $this->modified($since);
         $this->expires($time);
 
@@ -203,9 +185,9 @@ class Response
 
     public function disableCache()
     {
-        $this->headers['Expires'] = 'Mon, 26 Jul 1997 05:00:00 GMT';
-        $this->headers['Last-Modified'] = gmdate("D, d M Y H:i:s") . " GMT";
-        $this->headers['Cache-Control']
+        $this->_headers['Expires'] = 'Mon, 26 Jul 1997 05:00:00 GMT';
+        $this->_headers['Last-Modified'] = gmdate("D, d M Y H:i:s") . " GMT";
+        $this->_headers['Cache-Control']
             = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0';
 
         return $this;
@@ -214,10 +196,10 @@ class Response
     public function expires($time = null)
     {
         if (!isset($time)) {
-            return $this->headers['Expires'];
+            return $this->_headers['Expires'];
         }
 
-        $this->headers['Expires'] = gmdate('D, j M Y H:i:s', $time) . ' GMT';
+        $this->_headers['Expires'] = gmdate('D, j M Y H:i:s', $time) . ' GMT';
 
         return $this;
     }
@@ -225,10 +207,10 @@ class Response
     public function header($header = null, $value = null)
     {
         if (!isset($header)) {
-            return $this->headers;
+            return $this->_headers;
         }
 
-        $this->headers[$header] = $value;
+        $this->_headers[$header] = $value;
 
         return $this;
     }
@@ -236,10 +218,10 @@ class Response
     public function modified($time = null)
     {
         if (!isset($time)) {
-            return $this->headers['Last-Modified'];
+            return $this->_headers['Last-Modified'];
         }
 
-        $this->headers['Last-Modified'] = gmdate('D, j M Y H:i:s', $time)
+        $this->_headers['Last-Modified'] = gmdate('D, j M Y H:i:s', $time)
             . ' GMT';
 
         return $this;
@@ -250,24 +232,27 @@ class Response
         global $_SERVER;
 
         header(
-            "{$_SERVER['SERVER_PROTOCOL']} {$this->statusCode} "
-            . self::$statusCodes[$this->statusCode]
+            "{$_SERVER['SERVER_PROTOCOL']} {$this->_statusCode} "
+            . self::$statusCodes[$this->_statusCode]
         );
 
-        foreach ($this->headers as $key => $value) {
+        foreach ($this->_headers as $key => $value) {
+            if (is_array($value)) {
+                $value = implode(", ", $value);
+            }
             header("{$key}: {$value}");
         }
 
-        return $this->body;
+        return $this->_body;
     }
 
     public function statusCode($code = null)
     {
         if (!isset($code)) {
-            return $this->statusCode;
+            return $this->_statusCode;
         }
 
-        $this->statusCode = $code;
+        $this->_statusCode = $code;
 
         return $this;
     }
@@ -275,15 +260,14 @@ class Response
     public function type($contentType = null)
     {
         if (!isset($contentType)) {
-            return $this->headers['Content-Type'];
+            return $this->_headers['Content-Type'];
         }
 
         if (isset(self::$mimeTypes[$contentType])) {
-            $this->headers["Content-Type"] = self::$mimeTypes[$contentType];
+            $this->_headers["Content-Type"] = self::$mimeTypes[$contentType];
         }
 
         return $this;
-        // TODO temporary fix
     }
 
 }

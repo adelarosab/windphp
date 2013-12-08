@@ -1,58 +1,35 @@
 <?php
 
 /**
+ * Definition model class
  *
- * @author       Adrian de la Rosa Bretin
- * @version      1.0 (04/02/2013)
- * @version      1.1 (08/27/2013)
- *               Normalize definition object before any operation.
- *
- * @copyright    La Cuarta Edad
+ * @author    Adrian de la Rosa Bretin <adrian.delarosab@gmail.com>
+ * @copyright 2013 La Cuarta Edad
  *
  */
 
 namespace Vendor\MVC;
 
 use ArrayIterator;
+use Closure;
 use ErrorException;
+use Exception;
 use Vendor\Object;
 
-class Model extends Object
+class Model
 {
 
     const PATH = APP_MODEL;
-    const PRIMARY_KEY = 'ID';
-
-    const BINARY = 1;
-    const BLOB = 1;
-    const BOOL = 2;
-    const DATE = 4;
-    const DATETIME = 8;
-    const DOUBLE = 16;
-    const FLOAT = 32;
-    const INT = 64;
-    const REFERENCE = 128;
-    const TEXT = 256;
-    const TIME = 512;
-    const TIMESTAMP = 1024;
-    const VARCHAR = 256;
 
     public static $dataSource = null;
-    public static $list = array();
 
-    private $name;
-    private $values = array();
+    private $_definition;
+    private $_extra = [];
+    private $_values = [];
 
-    public function __construct($name)
+    public function __construct($definition)
     {
-        parent::__construct();
-        $this->name = $name;
-        self::$list[$name] = $this;
-
-        $this->member[self::PRIMARY_KEY] = (new Object)
-            ->type(
-                self::INT
-            );
+        $this->_definition = $definition;
     }
 
     public function __call($argv0, $argv)
@@ -62,19 +39,22 @@ class Model extends Object
         case 'insert':
         case 'select':
         case 'update':
-            $table = (isset($argv[0])) ? $argv[0] : $this->member['table'];
+            $table = (isset($argv[0])) ? $argv[0] : $this->_definition->table;
             $query = self::$dataSource->{$argv0}($table);
             break;
 
         case 'query':
             $query = call_user_func_array(
-                array(self::$dataSource, 'statement'),
+                [self::$dataSource, 'statement'],
                 $argv
             );
             break;
 
         default:
-            return parent::__call($argv0, $argv);
+            return call_user_func_array(
+                [$this->_definition, $argv0],
+                $argv
+            );
         }
 
         return $query;
@@ -82,98 +62,52 @@ class Model extends Object
 
     public function __isset($name)
     {
-        return isset($this->values[$name]);
+        return isset($this->_values[$name]);
     }
 
     public function __get($name)
     {
-        return (isset($this->values[$name])) ? $this->values[$name] : null;
+        return (isset($this->_values[$name])) ? $this->_values[$name] : null;
     }
 
-    public static function load($className)
+    public static function load($definition)
     {
-        if (isset(self::$list[$className])) {
+        if (isset(Definition::$list[$definition])) {
             return null;
         }
 
-        $fileName = strtolower(
-            self::PATH . DIRECTORY_SEPARATOR . $className . '.php'
-        );
-
+        $fileName = strtolower(self::PATH . DS . $definition . '.php');
         if (!file_exists($fileName) || !is_readable($fileName)) {
             return null;
         }
 
-        require_once $fileName;
+        include_once $fileName;
 
-        foreach (self::$list[$className]->{'dependencies'}(false) as $value) {
+        Definition::$list[$definition]->normalize();
+        $dependencies = Definition::$list[$definition]->dependencies();
+        foreach ($dependencies as $value) {
             self::load($value);
         }
-
-        return null;
     }
 
-    private function normalizeDefinition()
+    private function buildQuery($type, $table, $params)
     {
-        // attributes
-        foreach ($this->member as &$value) {
-            if (!($value instanceof Object)) {
-                continue;
-            }
+        $query = self::$dataSource->$type($table);
 
-            // type
-            if (!isset($value->type)) {
-                $value->type = self::INT;
-            }
-
-            $type = ((is_array($value->type)) ? $value->type[0] : $value->type);
-            if (!is_int($type)) {
-                $type = (constant("self::{$type}"))
-                    ? constant("self::{$type}")
-                    : self::INT;
-
-                if ($type & self::REFERENCE) {
-                    $value->reference = $value->type[1];
-                }
-
-                $value->type = $type;
-            }
-
-            // default values to references
-            if ($type & self::REFERENCE) {
-                $reference = $value->reference;
-
-                if (!isset($value->key)) {
-                    $value->key = strtolower($this->name) . self::PRIMARY_KEY;
-                }
-
-                if (!isset($value->table)
-                    && isset($reference)
-                    && isset(Model::$list[$reference])
-                    && isset(Model::$list[$reference]->member['table'])
-                ) {
-                    $value->table = Model::$list[$reference]->member['table'];
-                }
-            }
+        foreach ($params as $key => $value) {
+            $query->$key($value);
         }
 
-        // general properties of model
-        if (!isset($this->member['key'])) {
-            $this->member['key'] = self::PRIMARY_KEY;
-        }
-
-        if (!isset($this->member['table'])) {
-            $this->member['table'] = strtolower($this->name);
-        }
+        return $query;
     }
 
-    private function normalizeParams(array &$params = array())
+    private function normalize(array &$params = [])
     {
-        $params[$this->name] = array();
+        $params[$this->_definition->table] = [];
 
         foreach ($params as $key => $value) {
             if (preg_match('/^(select|from|limit|where)$/i', $key, $matches)) {
-                $params[$this->name][$matches[1]] = $value;
+                $params[$this->_definition->table][$matches[1]] = $value;
                 unset($params[$key]);
             }
 
@@ -187,269 +121,144 @@ class Model extends Object
                 unset($params[$key]);
             }
         }
-    }
 
-    public function afterDelete()
-    {
-    }
-
-    public function afterFind($response)
-    {
-    }
-
-    public function afterSave($created)
-    {
-    }
-
-    public function afterValidate()
-    {
-    }
-
-    public function beforeDelete()
-    {
-    }
-
-    public function beforeFind($query)
-    {
-    }
-
-    public function beforeSave()
-    {
-    }
-
-    public function beforeValidate()
-    {
+        return $params;
     }
 
     public function clear()
     {
-        $this->values = array();
+        $this->_values = [];
 
-        foreach ($this->member as $key => $value) {
-            if (!($value instanceof Object)) {
-                continue;
+        $fields = array_filter(
+            $this,
+            function ($value) {
+                return ($value instanceof Object);
             }
-
+        );
+        foreach ($fields as $key => $value) {
             if (isset($value->default)) {
-                $this->values[$key] = $value->default;
+                $value = $value->default;
+                if ($value instanceof Closure) {
+                    continue;
+                }
+
+                $this->_values[$key] = $value;
             }
         }
 
         return $this;
     }
 
-    public function create($data = array())
+    public function create(array $data = [])
     {
         return $this
             ->clear()
             ->set($data);
     }
 
-    public function delete($ID = null, $cascade = true)
+    public function find($query, array $params = [])
     {
-        $this->beforeDelete();
-
-        $this->normalizeDefinition();
-        $definition = $this->member;
-        $values = $this->values;
-
-        $delete = $this->delete();
-        if (!isset($ID) && isset($values[self::PRIMARY_KEY])) {
-            $ID = $values[self::PRIMARY_KEY];
-        }
-
-        if (isset($ID)) {
-            $delete->where(array(self::PRIMARY_KEY => $ID));
-        }
-
-        $delete->execute();
-
-        if ($cascade) {
-            foreach ($this->dependencies(false) as $key => $value) {
-                foreach ($values[$key] as $rvalue) {
-                    $rvalue->delete();
-                }
-
-                if (isset($definition[$key]->associationKey)) {
-                    $this->delete($definition[$key]->table)
-                        ->where(array($definition[$key]->key => $ID))
-                        ->execute();
-                }
+        $definition = $this->_definition;
+        $params = $this->normalize($params);
+        $dependencies = array_intersect(
+            $definition->dependencies(),
+            (isset($params['dependencies'])) ? $params['dependencies'] : []
+        );
+        $PK = $definition->key;
+        $table = $definition->table;
+        $fields = array_filter(
+            $definition,
+            function ($value) {
+                return ($value instanceof Object)
+                && !($value->type & Definition::REFERENCE);
             }
-        }
-
-        $this->clear();
-
-        $this->afterDelete();
-    }
-
-    public function dependencies($greedy = true, $cascade = array())
-    {
-        $dependencies = array();
-
-        $this->normalizeDefinition();
-        $definition = $this->member;
-
-        foreach ($definition as $key => $value) {
-            $reference = $value->reference;
-            $type = $value->type;
-
-            if (
-                ($value instanceof Object)
-                && ($type & self::REFERENCE)
-                && !in_array($reference, $cascade)
-            ) {
-                $cascade[] = $reference;
-                $dependencies[$key] = $reference;
-
-                if ($greedy) {
-                    Model::load($reference);
-
-                    if (!isset(Model::$list[$reference])) {
-                        continue;
-                    }
-
-                    array_merge(
-                        $dependencies,
-                        array_values(
-                            self::$list[$reference]->dependencies(
-                                $greedy,
-                                $cascade
-                            )
-                        )
-                    );
-                }
-            }
-        }
-
-        if ($greedy) {
-            $dependencies = array_values($dependencies);
-        }
-
-        asort($dependencies);
-
-        return $dependencies;
-    }
-
-    public function find($query, $params = array())
-    {
-        $this->normalizeDefinition();
-        $this->normalizeParams($params);
-        $definition = $this->member;
+        );
 
         // normalize params and settings query
 
-        $select = $this->select($definition['table']);
         switch ($query) {
         case 'first':
-            $params[$this->name]['limit'] = 1;
+            $params[$table]['limit'] = 1;
             break;
 
         case 'all':
             break;
 
         default:
-            $params[$this->name]['where'][
-            "`{$definition['table']}`.`" . self::PRIMARY_KEY . '`']
-                = $query;
+            $params[$table]['where']["`{$table}`.`{$PK}`"] = $query;
             break;
         }
 
-        foreach ($params[$this->name] as $key => $value) {
-            call_user_func(array($select, $key), $value);
-        }
+        $params[$table]['select'] = array_merge(
+            array_map(
+                function ($value) use ($params, $table) {
+                    if (isset($params[$table]['from'])) {
+                        $value = "`{$table}`.`{$value}`";
+                    }
 
-        $prefix = '';
-        if (isset($params[$this->name]['from'])) {
-            $prefix = "`{$definition['table']}`.";
-        }
+                    return $value;
+                },
+                $fields
+            ),
+            $params[$table]['select']
+        );
 
-        foreach ($definition as $key => $value) {
-            if (!($value instanceof Object)
-                && ($value->type & self::REFERENCE)
-            ) {
-                continue;
-            }
-
-            $select->select("{$prefix}`{$key}`");
-        }
+        $query = $this->buildQuery('select', $table, $params[$table]);
 
         // start method
 
-        $this->beforeFind((string) $select);
+        $definition->beforeFind((string) $query);
 
-        $response = $select->execute();
-
-        $data = array();
+        $response = $query->execute();
+        $data = [];
 
         // if response is affirmative
-
-        $dependencies = $this->dependencies(false);
-        if (isset($params['dependencies'])) {
-            $dependencies = array_intersect(
-                $dependencies,
-                $params['dependencies']
-            );
-        }
 
         if ($response->affectedRows) {
 
             // settings method response
 
-            $primaryKey = array();
-            foreach ($response as $value) {
-                $primaryKey[] = $value->{self::PRIMARY_KEY};
-            }
-            $primaryKey = array_unique($primaryKey);
+            $keys = array_unique(\Vendor\array_column($response, $PK));
 
-            $data = array();
             foreach ($response as $value) {
-                $data[$value->{self::PRIMARY_KEY}][$this->name] = $value;
+                $data[$value[$PK]] = $value;
             }
 
             // quering dependencies
 
             foreach ($dependencies as $key => $value) {
-                if (!isset(Model::$list[$value])) {
+                if (!isset(Definition::$list[$value])) {
                     continue;
                 }
 
+                $model = Definition::$list[$value];
                 $rkey = $definition[$key]->key;
-                $table = $definition[$key]->table;
+                $rtable = $definition[$key]->table;
 
-                $paramsSubQuery = array(
-                    'select' => array("`{$table}`.`{$rkey}`"),
-                    'where' => array("`{$table}`.`{$rkey}`" => $primaryKey)
-                );
+                $params[$rtable]['dependencies'] = $params['dependencies'];
+                $params[$rtable]['select'][] = "`{$rtable}`.`{$rkey}`";
+                $params[$rtable]['where']["`{$rtable}`.`{$rkey}`"] = $keys;
 
                 if (isset($definition[$key]->associationKey)) {
-                    $model = Model::$list[$value];
-                    $model->normalizeDefinition();
-                    $model = $model->member;
+                    $associationKey = $definition[$key]->associationKey;
+                    $params[$rtable]['from'][] = $rtable;
+                    $params[$rtable]['where'][]
+                        = "`{$rtable}`.`{$associationKey}` "
+                        . "= `{$model->table}`.`{$model->key}`";
 
-                    $paramsSubQuery['from'][] = $table;
-                    $paramsSubQuery['where'][] = array(
-                        "`{$table}`.`{$definition[$key]->associationKey}` "
-                        . "= `{$model['table']}`.`" . self::PRIMARY_KEY . "`"
-                    );
+                    if (isset($definition[$key]->extra)) {
+                        foreach ($definition[$key]->extra as $rvalue) {
+                            $params[$rtable]['select'][]
+                                = "`{$rtable}`.`{$rvalue}`";
+                        }
+                    }
                 }
 
-                if (isset($params[$value])) {
-                    $paramsSubQuery = array_merge_recursive(
-                        $params[$value],
-                        $paramsSubQuery
-                    );
-                }
-
-                $associated = Model::$list[$value]
-                    ->find(
-                        'all',
-                        $paramsSubQuery
-                    );
+                $associated = (new self($model))
+                    ->find('all', $params[$rtable]);
 
                 foreach ($associated as $rvalue) {
-                    $data[$rvalue[$value]->{$rkey}][$value][]
-                        = $rvalue;
+                    $data[$rvalue[$value]->$rkey][$key][] = $rvalue;
                 }
             }
         }
@@ -458,219 +267,254 @@ class Model extends Object
             $data = array_shift($data);
 
             if (isset($data)) {
-                $this->create($data[$this->name]);
-                foreach ($dependencies as $key => $value) {
-                    if (isset($data[$value])) {
-                        $this->set($key, $data[$value]);
-                    }
-                }
+                $this->create($data);
             }
         }
 
-        $this->afterFind($data);
+        $definition->afterFind($data);
 
         return $data;
     }
 
     public function getIterator()
     {
-        return new ArrayIterator($this->values);
+        return new ArrayIterator(array_merge($this->_values, $this->_extra));
     }
 
     public function jsonSerialize()
     {
-        return $this->values;
+        return array_merge($this->_values, $this->_extra);
     }
 
-    public function save($params = array())
+    public function remove($ID = null, $cascade = false, array $params = [])
     {
-        $this->beforeSave();
+        $definition = $this->_definition;
+        $params = $this->normalize($params);
+        $values = $this->_values;
+        $PK = $definition->key;
+        $table = $definition->table;
 
-        $this->normalizeDefinition();
-        $definition = $this->member;
-        $values = $this->values;
+        $definition->beforeDelete();
 
-        $this->normalizeParams($params);
+        $params[$table]['where'][$PK] = (isset($ID))
+            ? $ID
+            : ((isset($values[$PK])) ? $values[$PK] : '');
 
-        if (($validate = $this->validate())) {
-            throw new ErrorException($validate);
+        $this->buildQuery(
+            'delete',
+            $definition->table,
+            $params[$table]
+        )
+            ->execute();
+
+        if ($cascade) {
+            foreach ($definition->dependencies() as $key => $value) {
+                $rkey = $definition[$key]->key;
+                $rtable = $definition[$key]->table;
+
+                if (!isset($params[$rtable])) {
+                    $params[$rtable] = [];
+                }
+
+                foreach ($values[$key] as $rvalue) {
+                    $rvalue->delete();
+                }
+
+                if (isset($definition[$key]->associationKey)) {
+                    $params[$rtable]['where'][$rkey] = $ID;
+
+                    $this->buildQuery(
+                        'delete',
+                        $rtable,
+                        $params[$rtable]
+                    )
+                        ->execute();
+                }
+            }
         }
 
-        // generate values
+        if ($ID == $values[$definition->key]) {
+            $this->clear();
+        }
 
-        $insert = array();
-        foreach ($values as $key => $value) {
-            if (
-                isset($definition[$key])
-                && ($definition[$key]->type & self::REFERENCE)
-            ) {
-                continue;
+        $definition->afterDelete();
+    }
+
+    public function save(array $params = [])
+    {
+        $definition = $this->_definition;
+        $params = $this->normalize($params);
+        $values = $this->_values;
+        $PK = $definition->key;
+        $table = $definition->table;
+
+        $fields = array_filter(
+            $definition,
+            function ($value) {
+                return ($value instanceof Object)
+                && !($value->type & Definition::REFERENCE);
             }
+        );
+        array_walk(
+            $fields,
+            function (&$value, &$key) use ($values) {
+                if (isset($value->alias)) {
+                    $key = $value->alias;
+                }
 
-            if (isset($definition[$key]->alias)) {
-                $key = $definition[$key]->alias;
+                $value = $values[$key];
             }
+        );
+        $params[$table] = array_merge($fields, $params[$table]);
 
-            $insert[$key] = $value;
+        $definition->beforeSave();
+
+        if ($validate = $this->validate()) {
+            throw new ErrorException($validate);
         }
 
         // generate query
 
-        $create = !isset($insert[self::PRIMARY_KEY]);
-        $query = null;
-        if ($create) {
-            $query = $this->insert($definition['table']);
-        } else {
-            $query = $this->update($definition['table'])
-                ->where(array(self::PRIMARY_KEY => $insert[self::PRIMARY_KEY]));
-            unset($insert[self::PRIMARY_KEY]);
+        $create = !isset($values[$PK]);
+
+        if (!$create) {
+            $params[$table]['where'][$PK] = $values[$PK];
+            unset($params[$table][$PK]);
         }
 
-        foreach ($insert as $key => $value) {
-            $query->{$key}($value);
-        }
-
-        foreach ($params[$this->name] as $key => $value) {
-            call_user_func(array($query, $key), $value);
-        }
-
-        if ($create) {
-            foreach ($insert as $key => $value) {
-                $query->onDuplicateKey("`{$key}` = VALUES(`{$key}`)");
-            }
-        }
+        $query = $this->buildQuery(
+            ($create) ? 'insert' : 'update',
+            $table,
+            $params[$table]
+        );
 
         // execute query
 
-        if (!empty($insert)) {
+        try {
             $query->execute();
-            $this->values[self::PRIMARY_KEY]
-                = $values[self::PRIMARY_KEY] = self::$dataSource->insertID();
+        }
+        catch (Exception $e) {
+            if ($create) {
+                $create = false;
+
+                foreach ($fields as $key => $value) {
+                    $query->onDuplicateKey("`{$key}` = VALUES(`{$key}`)");
+                }
+            }
+            $this->_values[$PK] = $values[$PK] = self::$dataSource->insertID();
         }
 
-        if ($values[self::PRIMARY_KEY] === 0) {
-            $select = $this->select($definition['table']);
-
-            foreach ($insert as $key => $value) {
-                $select->$key($value);
-            }
-
-            $response = $select->execute();
+        if ($values[$PK] === 0) {
+            $response = $this->buildQuery('select', $table, $fields)
+                ->execute();
 
             if ($response->affectedRows) {
-                $this->values[self::PRIMARY_KEY]
-                    = $values[self::PRIMARY_KEY] = $response[self::PRIMARY_KEY];
+                $this->_values[$PK] = $values[$PK] = $response[$PK];
             }
         }
 
         // references
 
-        $dependencies = $this->dependencies(false);
+        $dependencies = $definition->dependencies();
         foreach ($dependencies as $key => $value) {
-            if (!isset(Model::$list[$value]) || !isset($values[$key])) {
+            if (!isset(Definition::$list[$value]) || !isset($values[$key])) {
                 continue;
             }
 
-            foreach ($values[$key] as $rvalue) {
-                if (!isset($definition[$key]->associationKey)) {
-                    $rvalue->set(
-                        $definition[$key]->key,
-                        $values[self::PRIMARY_KEY]
-                    );
-                }
-                $rvalue->save();
+            $model = Definition::$list[$value];
 
-                if (isset($definition[$key]->associationKey)) {
-                    $insert = $this
-                        ->insert($definition[$key]->table)
-                        ->{$definition[$key]->key}(
-                            $values[self::PRIMARY_KEY]
-                        )
-                        ->{$definition[$key]->associationKey}(
-                            $rvalue->{self::PRIMARY_KEY}
+            array_walk(
+                $values[$key],
+                function ($rvalue) use (
+                    $definition,
+                    $key,
+                    $model,
+                    &$params,
+                    $PK,
+                    $values
+                ) {
+                    $complex = isset($definition[$key]->associationKey);
+                    if (!$complex) {
+                        $rvalue->set($definition[$key]->key, $values[$PK]);
+                    }
+                    $rvalue->save();
+
+                    if ($complex) {
+                        $rtable = $definition[$key]->table;
+                        $params[$rtable][$definition[$key]->key] = $values[$PK];
+                        $params[$rtable][$definition[$key]->associationKey]
+                            = $model->key;
+
+                        $params[$rtable] = array_merge(
+                            $params[$rtable],
+                            $rvalue->_extra
                         );
 
-                    $extra
-                        = (isset($params['extra'][$value][$rvalue->{self::PRIMARY_KEY}]))
-                        ? $params['extra'][$value][$rvalue->{self::PRIMARY_KEY}]
-                        : null;
-                    if (isset($extra)) {
-                        foreach ($extra as $rrkey => $rrvalue) {
-                            call_user_func(array($insert, $rrkey), $rrvalue);
+                        if (!empty($rvalue->_extra)) {
+                            foreach ($rvalue->_extra as $rrkey => $rrvalue) {
+                                $params[$rtable]['onDuplicateKey'][]
+                                    = "`{$rrkey}` = VALUES(`{$rrkey}`)";
+                            }
                         }
-                    }
 
-                    if (isset($params[$value])) {
-                        foreach ($params[$value] as $rrkey => $rrvalue) {
-                            call_user_func(array($insert, $rrkey), $rrvalue);
-                        }
+                        $this->buildQuery('insert', $rtable, $params[$rtable])
+                            ->execute();
                     }
-
-                    if (isset($extra)) {
-                        foreach ($extra as $rrkey => $rrvalue) {
-                            $insert->{'onDuplicateKey'}(
-                                "`{$rrkey}` = VALUES(`{$rrkey}`)"
-                            );
-                        }
-                    } else {
-                        $insert->{'onDuplicateKey'}(
-                            "`{$definition[$key]->key}` "
-                            . "= VALUES(`{$definition[$key]->key}`)"
-                        );
-                    }
-
-                    $insert->{'execute'}();
                 }
-            }
+            );
         }
 
-        $this->afterSave($this->values[self::PRIMARY_KEY] && $create);
+        $definition->afterSave($values[$PK] && $create);
     }
 
     public function set($name, $value = null)
     {
-        $this->normalizeDefinition();
-        $definition = $this->member;
+        $definition = $this->_definition;
 
         if ((is_array($name) || is_object($name)) && !isset($value)) {
             foreach ($name as $key => $value) {
                 $this->set($key, $value);
             }
         } else {
+            $name = (string) $name;
+
             if (isset($definition[$name])) {
                 $type = $definition[$name]->type;
 
-                if ($type & self::REFERENCE) {
+                if ($type & Definition::REFERENCE) {
                     $reference = $definition[$name]->reference;
 
-                    if (!isset(Model::$list[$reference])) {
+                    if (!isset(Definition::$list[$reference])) {
                         return $this;
                     }
 
                     if (is_object($value)) {
-                        $value = array($value);
+                        $value = [$value];
                     } elseif (is_array($value)) {
                         $keys = array_keys($value);
                         if (!is_integer(array_shift($keys))) {
-                            $value = array($value);
+                            $value = [$value];
                         }
                     }
 
                     foreach ($value as $rvalue) {
-                        $this->values[$name][]
-                            = clone Model::$list[$type[1]]->create($rvalue);
+                        $this->_values[$name][]
+                            = (new self(Definition::$list[$reference]))
+                            ->create($rvalue);
                     }
 
                     return $this;
                 }
 
-                $this->values[$name] = $value;
+                $this->_values[$name] = $value;
             } else {
                 $response = $this->query("DESCRIBE `{$definition['table']}`;")
                     ->execute();
 
                 if (isset($response->num_rows) && $response->num_rows) {
-                    $this->values[$name] = $value;
+                    $this->_values[$name] = $value;
+                } else {
+                    $this->_extra[$name] = $value;
                 }
             }
         }
@@ -680,108 +524,13 @@ class Model extends Object
 
     public function validate()
     {
-        $this->beforeValidate();
+        $this->call('beforeValidate');
 
-        $this->normalizeDefinition();
-        $definition = $this->member;
-        $values = & $this->values;
+        $response = $this->_definition->validate($this->_values);
 
+        $this->call('afterValidate');
 
-        foreach ($definition as $key => $value) {
-            if (!($value instanceof Object)) {
-                continue;
-            }
-
-            if (!isset($values[$key])) {
-                if (
-                    isset($value['validation'])
-                    && $value['validation']->required
-                ) {
-                    return $value['validation']->required;
-                }
-
-                continue;
-            }
-
-            if ($value->type & self::REFERENCE) {
-                foreach ($values[$key] as $rrvalue) {
-                    if ($validation = $rrvalue->validate()) {
-                        return $validation;
-                    }
-                }
-
-                continue;
-            }
-
-            $rvalue = & $values[$key];
-
-            switch ($value->type) {
-            case self::BINARY:
-            case self::BLOB:
-                break;
-
-            case self::BOOL:
-                $rvalue = (int) ((bool) $rvalue);
-                break;
-
-            case self::DATE:
-                if (!is_int($rvalue)) {
-                    $rvalue = strtotime($rvalue);
-                }
-                $rvalue = date('Y-m-d', $rvalue);
-                break;
-
-            case self::DATETIME:
-            case self::TIMESTAMP:
-                if (!is_int($rvalue)) {
-                    $rvalue = strtotime($rvalue);
-                }
-                $rvalue = date('Y-m-d H:i:s', $rvalue);
-                break;
-
-            case self::FLOAT:
-                $rvalue = (float) $rvalue;
-                break;
-
-            case self::TIME:
-                if (!is_int($rvalue)) {
-                    $rvalue = strtotime($rvalue);
-                }
-                continue;
-
-            case self::TEXT:
-            case self::VARCHAR:
-                $rvalue = (string) $rvalue;
-                break;
-
-            case self::INT:
-            default:
-                $rvalue = (int) $rvalue;
-                break;
-            }
-
-            if (!isset($value['validation'])) {
-                continue;
-            }
-
-            $validation = $value['validation'];
-            foreach ($validation as $rrkey => $rrvalue) {
-                switch ($rrkey) {
-                default:
-                    $error = !preg_match($rrkey, $rvalue);
-                    break;
-                }
-
-                if ($error) {
-                    return $rrvalue;
-                }
-            }
-
-        }
-
-        $this->afterValidate();
-
-        return null;
+        return $response;
     }
 
 }

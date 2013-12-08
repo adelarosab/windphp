@@ -10,8 +10,7 @@
  */
 
 $router = array(
-    '/' => array('controller' => 'main', 'action' => 'index'),
-    '/template' => array('controller' => 'main', 'action' => 'index')
+    '/' => array('controller' => 'main', 'action' => 'index')
 );
 
 /* DO NOT TOUCH UNDER THIS LINE */

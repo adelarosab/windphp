@@ -61,17 +61,22 @@ class Router extends Singleton
         return $response;
     }
 
-    private function parse($URI)
+    private function parse($uri)
     {
-        $URI = parse_url($URI);
-        $path = (isset($URI['path'])) ? $URI['path'] : '/';
+        $uri = parse_url($uri);
+        $path = (isset($uri['path'])) ? $uri['path'] : '/';
 
         $out = array_filter(explode('/', $path));
 
+        $controller = array_shift($out);
+        $action = explode('.', array_shift($out), 2);
+        $extension = (isset($action[1])) ? $action[1] : null;
+
         return array_merge(
             array(
-                'controller' => array_shift($out),
-                'action' => array_shift($out)
+                'controller' => $controller,
+                'action' => $action[0],
+                'extension' => $extension
             ),
             $out
         );

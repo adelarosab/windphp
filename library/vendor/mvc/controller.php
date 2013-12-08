@@ -1,17 +1,10 @@
 <?php
 
 /**
+ * Definition controller class
  *
- * @author       Adrian de la Rosa Bretin
- * @version      1.0 (04/02/2013)
- *
- * @version      2.0 (08/05/2013)
- *
- * @version      3.0 (10/13/2013)
- *               Helpers added.
- *
- *
- * @copyright    La Cuarta Edad
+ * @author    Adrian de la Rosa Bretin <adrian.delarosab@gmail.com>
+ * @copyright 2013 La Cuarta Edad
  *
  */
 
@@ -22,20 +15,20 @@ use DomainException;
 use ErrorException;
 use Exception;
 
-abstract class Controller
+class Controller
 {
 
     const DEFAULT_ACTION = 'index';
     const PATH = APP_CONTROLLER;
 
-    private $rendered = false;
-    private $view;
+    private $_rendered = false;
+    private $_view;
 
     protected $action;
     protected $Request;
     protected $Response;
 
-    public $helpers = array();
+    public $helpers = [];
 
     public function __construct(Request &$request, Response &$response)
     {
@@ -43,12 +36,12 @@ abstract class Controller
         $this->Response = $response;
 
         $this->bind(get_called_class());
-        $this->Model = new Model('Model');
+        $this->Model = new Model(new Definition('Model'));
 
         if (!empty($this->helpers) && is_array($this->helpers)) {
             foreach ($this->helpers as $key => $value) {
                 $fileName = strtolower(
-                    APP_VIEW . 'helper' . DS . $value . '.php'
+                    APP_CONTROLLER . 'helper' . DS . $value . '.php'
                 );
 
                 if (!file_exists($fileName) || !is_readable($fileName)) {
@@ -56,7 +49,7 @@ abstract class Controller
                     continue;
                 }
 
-                require_once $fileName;
+                include_once $fileName;
 
                 if (class_exists($value)) {
                     $this->helpers[$key] = new $value;
@@ -74,7 +67,7 @@ abstract class Controller
         return call_user_func_array(array($this, self::DEFAULT_ACTION), $argv);
     }
 
-    public function __invoke($action = self::DEFAULT_ACTION)
+    public function __invoke($action = self::DEFAULT_ACTION, $extension = '')
     {
         $this->action = (isset($action)) ? $action : self::DEFAULT_ACTION;
         $this->view($this->action);
@@ -85,7 +78,10 @@ abstract class Controller
             throw new BadMethodCallException('Controller not found');
         }
 
-        $argv = array_slice(func_get_args(), 1);
+        $argv = array_slice(func_get_args(), 2);
+        if (!empty($extension)) {
+            $this->Response->type($extension);
+        }
         $this->Response
             ->body(
                 call_user_func_array(array($this, $this->action), $argv)
@@ -106,7 +102,7 @@ abstract class Controller
             throw new DomainException('Controller not found');
         }
 
-        require_once($file);
+        include_once $file;
 
         if (!class_exists($className)
             && is_subclass_of($className, __CLASS__)
@@ -134,6 +130,29 @@ abstract class Controller
         return $outClosure($object, $method);
     }
 
+    protected final function bind($name, array $filter = array())
+    {
+        try {
+            Model::load($name);
+        }
+        catch (Exception $e) {
+            throw new ErrorException('Impossible to load model');
+        }
+
+        if (isset(Definition::$list[$name])) {
+            $this->$name = new Model(Definition::$list[$name]);
+
+            $dependencies = $this->$name->dependencies();
+            foreach ($dependencies as $value) {
+                if (!empty($filter) && !in_array($value, $filter)) {
+                    continue;
+                }
+
+                $this->bind($value);
+            }
+        }
+    }
+
     protected function forward($uri)
     {
         $dispatcher = new Dispatcher();
@@ -158,7 +177,7 @@ abstract class Controller
 
     protected function set($key, $value)
     {
-        if (isset($this->view)) {
+        if (isset($this->_view)) {
             $this
                 ->view()
                 ->set($key, $value);
@@ -175,29 +194,6 @@ abstract class Controller
 
     public function beforeRender()
     {
-    }
-
-    public final function bind($name, array $filter = array())
-    {
-        try {
-            Model::load($name);
-        }
-        catch (Exception $e) {
-            throw new ErrorException('Impossible to load model');
-        }
-
-        if (isset(Model::$list[$name])) {
-            $this->$name = Model::$list[$name];
-
-            $dependencies = $this->$name->dependencies(false);
-            foreach ($dependencies as $value) {
-                if (!empty($filter) && !in_array($value, $filter)) {
-                    continue;
-                }
-
-                $this->bind($value);
-            }
-        }
     }
 
     public function index()
@@ -277,23 +273,23 @@ abstract class Controller
 
     public final function render()
     {
-        if ($this->rendered) {
+        if ($this->_rendered) {
             return;
         }
 
-        $this->rendered = !$this->rendered;
-        if (isset($this->view)) {
-            $this->Response->body($this->view);
+        $this->_rendered = !$this->_rendered;
+        if (isset($this->_view)) {
+            $this->Response->body($this->_view);
         }
     }
 
     public final function view($name = null)
     {
         if (!isset($name)) {
-            return $this->view;
+            return $this->_view;
         }
 
-        $this->view = View::fromClassName(array(get_called_class(), $name));
+        $this->_view = View::fromClassName(array(get_called_class(), $name));
 
         return $this;
     }

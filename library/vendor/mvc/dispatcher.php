@@ -37,6 +37,8 @@ class Dispatcher
         $route = Router::getInstance()
             ->route($request->here());
 
+        var_dump($route);
+
         try {
             $this->loadController($route['controller']);
 
@@ -44,12 +46,19 @@ class Dispatcher
             call_user_func_array($controller, array_slice($route, 1));
         }
         catch (DomainException $e) {
-            if (file_exists(APP_VIEW . '/error404.tpl')) {
-                $response->body(
-                    file_get_contents(APP_VIEW . '/error404.tpl')
-                );
+            Model::load($route['controller']);
+
+            if (isset(Definition::$list[$route['controller']])) {
+                $controller = new Controller($request, $response);
+                call_user_func_array($controller, array_slice($route, 1));
+            } else {
+                if (file_exists(APP_VIEW . '/error404.tpl')) {
+                    $response->body(
+                        file_get_contents(APP_VIEW . '/error404.tpl')
+                    );
+                }
+                $response->statusCode(404);
             }
-            $response->statusCode(404);
         }
         catch (Exception $e) {
             print $e->getMessage();
