@@ -3,7 +3,7 @@
 /**
  * Hello world
  *
- * @author Adrian de la Rosa Bretin
+ * @author    Adrian de la Rosa Bretin <adrian.delarosab@gmail.com>
  * @copyright 2013 La Cuarta Edad
  *
  */
