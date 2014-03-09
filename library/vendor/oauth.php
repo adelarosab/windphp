@@ -40,7 +40,8 @@ abstract class OAuth extends Request
         $secret,
         $callback = null,
         $signature = self::HMAC_SHA1
-    ) {
+    )
+    {
         parent::__construct(
             new Consumer($key, $secret, $callback),
             new Token('', '')
@@ -100,7 +101,8 @@ abstract class OAuth extends Request
         $method = self::GET,
         array $data = array(),
         array $options = array()
-    ) {
+    )
+    {
         $this->url((isset($url)) ? $url : $this->url());
         $this->method((isset($method)) ? $method : $this->method());
         if (!empty($data)) {

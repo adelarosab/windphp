@@ -150,7 +150,7 @@ abstract class DataSource
 
     public function query(Query $query)
     {
-        $response = $this->link->{'query'}((string) $query);
+        $response = $this->link->{'query'}((string)$query);
 
         if (self::$DEBUG & DEBUG_DATABASE) {
             print str_pad('', 75, '=') . PHP_EOL;

@@ -47,7 +47,7 @@ class DataBase extends DataSource
 
     public function getDatabase()
     {
-        return (string) $this->database;
+        return (string)$this->database;
     }
 
     private function check()
@@ -82,21 +82,21 @@ class DataBase extends DataSource
 
         $class = strtolower(basename(get_class($query)));
         switch ($class) {
-        case 'insert':
-        case 'update':
-            $response = $this->link->insert_id;
-            break;
+            case 'insert':
+            case 'update':
+                $response = $this->link->insert_id;
+                break;
 
-        case 'select':
-            $data = array();
-            while ($row = $response->fetch_assoc()) {
-                $data[] = $row;
-            }
-            $response = new Response($response);
-            break;
+            case 'select':
+                $data = array();
+                while ($row = $response->fetch_assoc()) {
+                    $data[] = $row;
+                }
+                $response = new Response($data);
+                break;
 
-        default:
-            break;
+            default:
+                break;
         }
 
         return $response;

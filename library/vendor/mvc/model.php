@@ -35,26 +35,26 @@ class Model
     public function __call($argv0, $argv)
     {
         switch ($argv0) {
-        case 'delete':
-        case 'insert':
-        case 'select':
-        case 'update':
-            $table = (isset($argv[0])) ? $argv[0] : $this->_definition->table;
-            $query = self::$dataSource->{$argv0}($table);
-            break;
+            case 'delete':
+            case 'insert':
+            case 'select':
+            case 'update':
+                $table = (isset($argv[0])) ? $argv[0] : $this->_definition->table;
+                $query = self::$dataSource->{$argv0}($table);
+                break;
 
-        case 'query':
-            $query = call_user_func_array(
-                [self::$dataSource, 'statement'],
-                $argv
-            );
-            break;
+            case 'query':
+                $query = call_user_func_array(
+                    [self::$dataSource, 'statement'],
+                    $argv
+                );
+                break;
 
-        default:
-            return call_user_func_array(
-                [$this->_definition, $argv0],
-                $argv
-            );
+            default:
+                return call_user_func_array(
+                    [$this->_definition, $argv0],
+                    $argv
+                );
         }
 
         return $query;
@@ -130,7 +130,7 @@ class Model
         $this->_values = [];
 
         $fields = array_filter(
-            $this,
+            (array)$this,
             function ($value) {
                 return ($value instanceof Object);
             }
@@ -149,7 +149,7 @@ class Model
         return $this;
     }
 
-    public function create(array $data = [])
+    public function create($data = [])
     {
         return $this
             ->clear()
@@ -166,27 +166,28 @@ class Model
         );
         $PK = $definition->key;
         $table = $definition->table;
-        $fields = array_filter(
-            $definition,
-            function ($value) {
-                return ($value instanceof Object)
-                && !($value->type & Definition::REFERENCE);
+        $fields = [];
+        foreach ($definition as $key => $value) {
+            if (($value instanceof Object)
+                && !($value->type & Definition::REFERENCE)
+            ) {
+                $fields[] = $key;
             }
-        );
+        }
 
         // normalize params and settings query
 
         switch ($query) {
-        case 'first':
-            $params[$table]['limit'] = 1;
-            break;
+            case 'first':
+                $params[$table]['limit'] = 1;
+                break;
 
-        case 'all':
-            break;
+            case 'all':
+                break;
 
-        default:
-            $params[$table]['where']["`{$table}`.`{$PK}`"] = $query;
-            break;
+            default:
+                $params[$table]['where']["`{$table}`.`{$PK}`"] = $query;
+                break;
         }
 
         $params[$table]['select'] = array_merge(
@@ -200,16 +201,16 @@ class Model
                 },
                 $fields
             ),
-            $params[$table]['select']
+            (isset($params[$table]['select'])) ? $params[$table]['select'] : []
         );
 
-        $query = $this->buildQuery('select', $table, $params[$table]);
+        $Query = $this->buildQuery('select', $table, $params[$table]);
 
         // start method
 
-        $definition->beforeFind((string) $query);
+        $definition->beforeFind((string)$Query);
 
-        $response = $query->execute();
+        $response = $Query->execute();
         $data = [];
 
         // if response is affirmative
@@ -218,7 +219,9 @@ class Model
 
             // settings method response
 
-            $keys = array_unique(\Vendor\array_column($response, $PK));
+            $keys = array_unique(
+                \Vendor\array_column($response->toArray(), $PK)
+            );
 
             foreach ($response as $value) {
                 $data[$value[$PK]] = $value;
@@ -392,8 +395,7 @@ class Model
 
         try {
             $query->execute();
-        }
-        catch (Exception $e) {
+        } catch (Exception $e) {
             if ($create) {
                 $create = false;
 
@@ -476,7 +478,7 @@ class Model
                 $this->set($key, $value);
             }
         } else {
-            $name = (string) $name;
+            $name = (string)$name;
 
             if (isset($definition[$name])) {
                 $type = $definition[$name]->type;

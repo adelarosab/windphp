@@ -54,18 +54,18 @@ class Request extends URL
                 'oauth_nonce' => md5(microtime() . mt_rand()),
                 'oauth_timestamp' => time(),
                 'oauth_consumer_key' => $this
-                    ->consumer()
-                    ->key(),
+                        ->consumer()
+                        ->key(),
                 'oauth_token' => $this
-                    ->token()
-                    ->key()
+                        ->token()
+                        ->key()
             )
         );
     }
 
     protected function sign(Signature $signature)
     {
-        $this->data('oauth_signature_method', (string) $signature);
+        $this->data('oauth_signature_method', (string)$signature);
         // on purpose, it able read method in build method of signature
         $this->data(
             'oauth_signature',

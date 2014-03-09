@@ -16,11 +16,13 @@ function array_column($array, $column, $key = null)
     $values = array_reduce(
         $array,
         function ($result, $item) use ($column) {
+            $item = (array)$item;
+
             $result[] = $item[$column];
 
             return $result;
         },
-        array()
+        []
     );
 
     if (isset($key)) {

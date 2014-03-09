@@ -1,22 +1,10 @@
 <?php
 
 /**
+ * Base Query Class
  *
- * @author    Adrian de la Rosa Bretin
- * @version   0.2
- *  2012-03-03:
- *      - Add function to escape string.
- *      - Add function to substitute ? from sentences.
- *
- * @version   0.3 (08-18-2012)
- *  2012-08-18:
- *      - Arguments checking.
- *
- * @version   0.4 (10/06/2012)
- *    2012-10-06:
- *       - Add method execute.
- *
- * @copyright La Cuarta Edad
+ * @author    Adrian de la Rosa Bretin <adrian.delarosab@gmail.com>
+ * @copyright 2012 La Cuarta Edad
  *
  */
 

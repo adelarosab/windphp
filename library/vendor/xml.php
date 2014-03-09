@@ -51,7 +51,7 @@ class XML implements ArrayAccess
 
             return (count($element) > 1) ? $element : $element[0];
         } elseif (isset($this->root->$name)) {
-            return (string) $this->root->$name;
+            return (string)$this->root->$name;
         } else {
             return null;
         }
@@ -79,8 +79,7 @@ class XML implements ArrayAccess
             restore_error_handler();
 
             return new self($xml);
-        }
-        catch (Exception $e) {
+        } catch (Exception $e) {
             throw new InvalidArgumentException(
                 "XML: Malformed XML. {$e->getMessage()}"
             );

@@ -41,7 +41,7 @@ class Controller
         if (!empty($this->helpers) && is_array($this->helpers)) {
             foreach ($this->helpers as $key => $value) {
                 $fileName = strtolower(
-                    APP_CONTROLLER . 'helper' . DS . $value . '.php'
+                    APP_CONTROLLER . DS . 'helper' . DS . $value . '.php'
                 );
 
                 if (!file_exists($fileName) || !is_readable($fileName)) {
@@ -52,7 +52,7 @@ class Controller
                 include_once $fileName;
 
                 if (class_exists($value)) {
-                    $this->helpers[$key] = new $value;
+                    $this->helpers[$key] = new $value($request, $response);
                 } else {
                     unset($this->helpers[$key]);
                 }
@@ -134,8 +134,7 @@ class Controller
     {
         try {
             Model::load($name);
-        }
-        catch (Exception $e) {
+        } catch (Exception $e) {
             throw new ErrorException('Impossible to load model');
         }
 
@@ -207,65 +206,69 @@ class Controller
         }
 
         switch ($this->Request->method()) {
-        case 'POST':
-            if (isset($ID)) {
-                $this->Response->statusCode(404);
-            } else {
-                $this->$className
-                    ->create($this->Request->data())
-                    ->save();
+            case 'POST':
+                if (isset($ID)) {
+                    $this->Response->statusCode(404);
+                } else {
+                    $this->$className
+                        ->create($this->Request->data())
+                        ->save();
 
-                $this->Response->statusCode(201);
+                    $this->Response->statusCode(201);
 
-                return $this->$className->ID;
-            }
-            break;
+                    $this->forward(
+                        $this->Request->here() . "/{$this->$className->ID}"
+                    );
+                }
+                break;
 
-        case 'PUT':
-            if (isset($ID)) {
-                $object = $this->$className
-                    ->find($ID);
+            case 'PUT':
+                if (isset($ID)) {
+                    $object = $this->$className
+                        ->find($ID);
 
-                if (isset($object)) {
-                    $data = $this->Request->data();
+                    if (isset($object)) {
+                        $data = $this->Request->data();
 
-                    // empty only supports reference
-                    if (empty($data)) {
-                        $this->Response->statusCode(204);
+                        // empty only supports reference
+                        if (empty($data)) {
+                            $this->Response->statusCode(204);
+                        } else {
+                            $this->$className
+                                ->set($this->Request->data())
+                                ->save();
+                        }
                     } else {
-                        $this->$className
-                            ->set($this->Request->data())
-                            ->save();
+                        $this->Response->statusCode(404);
                     }
                 } else {
                     $this->Response->statusCode(404);
                 }
-            } else {
-                $this->Response->statusCode(404);
-            }
-            break;
+                break;
 
-        case 'DELETE':
-            if (isset($ID)) {
-                $object = $this->$className
-                    ->find($ID);
+            case 'DELETE':
+                if (isset($ID)) {
+                    $object = $this->$className
+                        ->find($ID);
 
-                if (isset($object)) {
-                    $this->$className->delete($ID);
+                    if (isset($object)) {
+                        $this->$className->delete($ID);
+                    } else {
+                        $this->Response->statusCode(404);
+                    }
                 } else {
                     $this->Response->statusCode(404);
                 }
-            } else {
-                $this->Response->statusCode(404);
-            }
-            break;
+                break;
 
-        case 'GET':
-        default:
-            if (isset($ID)) {
-                return json_encode($this->$className->find($ID));
-            }
-            break;
+            case 'GET':
+            default:
+                if (isset($ID)) {
+                    return $this->$className->find($ID);
+                } else {
+                    return $this->$className->find("all");
+                }
+                break;
         }
 
         return null;

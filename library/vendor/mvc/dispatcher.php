@@ -37,15 +37,12 @@ class Dispatcher
         $route = Router::getInstance()
             ->route($request->here());
 
-        var_dump($route);
-
         try {
             $this->loadController($route['controller']);
 
             $controller = new $route['controller']($request, $response);
             call_user_func_array($controller, array_slice($route, 1));
-        }
-        catch (DomainException $e) {
+        } catch (DomainException $e) {
             Model::load($route['controller']);
 
             if (isset(Definition::$list[$route['controller']])) {
@@ -59,8 +56,7 @@ class Dispatcher
                 }
                 $response->statusCode(404);
             }
-        }
-        catch (Exception $e) {
+        } catch (Exception $e) {
             print $e->getMessage();
 
             if (file_exists(APP_VIEW . '/error500.tpl')) {

@@ -42,6 +42,7 @@ class Definition extends Object
     {
         parent::__construct();
 
+        self::$list[$name] = $this;
         $this->_name = $name;
 
         $this[self::PRIMARY_KEY]
@@ -50,12 +51,15 @@ class Definition extends Object
 
     public function __call($argv0, $argv)
     {
-        try {
-            $closure = $this->_definition->$argv0;
+        $closure = $this->$argv0;
 
-            return call_user_func_array($closure, $argv);
+        if (!$closure) {
+            return $closure;
         }
-        catch (Exception $e) {
+
+        try {
+            return call_user_func_array($closure, $argv);
+        } catch (Exception $e) {
             // noop
         }
 
@@ -146,7 +150,7 @@ class Definition extends Object
         $dependencies = [];
 
         $fields = array_filter(
-            $this,
+            (array)$this,
             function ($value) {
                 return ($value instanceof Object)
                 && ($value->type & self::REFERENCE);
@@ -196,48 +200,48 @@ class Definition extends Object
 
             $rvalue = $value[$key];
             switch ($value->type) {
-            case self::BINARY:
-            case self::BLOB:
-                break;
+                case self::BINARY:
+                case self::BLOB:
+                    break;
 
-            case self::BOOL:
-                $rvalue = (int) ((bool) $rvalue);
-                break;
+                case self::BOOL:
+                    $rvalue = (int)((bool)$rvalue);
+                    break;
 
-            case self::DATE:
-                if (!is_int($rvalue)) {
-                    $rvalue = strtotime($rvalue);
-                }
-                $rvalue = date('Y-m-d', $rvalue);
-                break;
+                case self::DATE:
+                    if (!is_int($rvalue)) {
+                        $rvalue = strtotime($rvalue);
+                    }
+                    $rvalue = date('Y-m-d', $rvalue);
+                    break;
 
-            case self::DATETIME:
-            case self::TIMESTAMP:
-                if (!is_int($rvalue)) {
-                    $rvalue = strtotime($rvalue);
-                }
-                $rvalue = date('Y-m-d H:i:s', $rvalue);
-                break;
+                case self::DATETIME:
+                case self::TIMESTAMP:
+                    if (!is_int($rvalue)) {
+                        $rvalue = strtotime($rvalue);
+                    }
+                    $rvalue = date('Y-m-d H:i:s', $rvalue);
+                    break;
 
-            case self::FLOAT:
-                $rvalue = (float) $rvalue;
-                break;
+                case self::FLOAT:
+                    $rvalue = (float)$rvalue;
+                    break;
 
-            case self::TIME:
-                if (!is_int($rvalue)) {
-                    $rvalue = strtotime($rvalue);
-                }
-                continue;
+                case self::TIME:
+                    if (!is_int($rvalue)) {
+                        $rvalue = strtotime($rvalue);
+                    }
+                    continue;
 
-            case self::TEXT:
-            case self::VARCHAR:
-                $rvalue = (string) $rvalue;
-                break;
+                case self::TEXT:
+                case self::VARCHAR:
+                    $rvalue = (string)$rvalue;
+                    break;
 
-            case self::INT:
-            default:
-                $rvalue = (int) $rvalue;
-                break;
+                case self::INT:
+                default:
+                    $rvalue = (int)$rvalue;
+                    break;
             }
             $data[$key] = $rvalue;
 
@@ -247,24 +251,24 @@ class Definition extends Object
 
             foreach ($validation as $rkey => $rvalue) {
                 switch ($rkey) {
-                case 'alphanumeric':
-                    $error = !preg_match('/\w+/', $data[$key]);
-                    break;
+                    case 'alphanumeric':
+                        $error = !preg_match('/\w+/', $data[$key]);
+                        break;
 
-                case 'blank':
-                    $error = !empty($data[$key]);
-                    break;
+                    case 'blank':
+                        $error = !empty($data[$key]);
+                        break;
 
-                case 'decimal':
-                    $error = !preg_match('/(\+-)?\d+(\.\d+)?/', $data[$key]);
-                    break;
+                    case 'decimal':
+                        $error = !preg_match('/(\+-)?\d+(\.\d+)?/', $data[$key]);
+                        break;
 
-                case 'email':
-                    $error = !preg_match(
-                        '/[\w\d.]+@[\w\d.]+\.[\w]+',
-                        $data[$key]
-                    );
-                    break;
+                    case 'email':
+                        $error = !preg_match(
+                            '/[\w\d.]+@[\w\d.]+\.[\w]+',
+                            $data[$key]
+                        );
+                        break;
 
 //                case 'extension':
 //                    break;
@@ -272,30 +276,30 @@ class Definition extends Object
 //                case 'ip':
 //                    break;
 
-                case 'length':
-                    $min = (is_array($rvalue) && isset($rvalue[0]))
-                        ? $rvalue[0]
-                        : $rvalue;
-                    $max = (is_array($rvalue)
-                        && isset($rvalue[1])
-                        && is_int($rvalue[1]))
-                        ? $rvalue[1]
-                        : PHP_INT_MAX;
-                    $length = strlen($data[$key]);
+                    case 'length':
+                        $min = (is_array($rvalue) && isset($rvalue[0]))
+                            ? $rvalue[0]
+                            : $rvalue;
+                        $max = (is_array($rvalue)
+                            && isset($rvalue[1])
+                            && is_int($rvalue[1]))
+                            ? $rvalue[1]
+                            : PHP_INT_MAX;
+                        $length = strlen($data[$key]);
 
-                    $error = $length < $min || $length > $max;
-                    $rvalue = (is_array($rvalue)
-                        && isset($rvalue[1])
-                        && !is_int($rvalue[1]))
-                        ? $rvalue[1]
-                        : ((is_array($rvalue) && isset($rvalue[2]))
-                            ? $rvalue[2]
-                            : '');
-                    break;
+                        $error = $length < $min || $length > $max;
+                        $rvalue = (is_array($rvalue)
+                            && isset($rvalue[1])
+                            && !is_int($rvalue[1]))
+                            ? $rvalue[1]
+                            : ((is_array($rvalue) && isset($rvalue[2]))
+                                ? $rvalue[2]
+                                : '');
+                        break;
 
-                case 'numeric':
-                    $error = !preg_match('/(\+-)?\d+/', $data[$key]);
-                    break;
+                    case 'numeric':
+                        $error = !preg_match('/(\+-)?\d+/', $data[$key]);
+                        break;
 
 //                case 'phone':
 //                    break;
@@ -303,9 +307,9 @@ class Definition extends Object
 //                case 'url':
 //                    break;
 
-                default:
-                    $error = !preg_match($rkey, $data[$key]);
-                    break;
+                    default:
+                        $error = !preg_match($rkey, $data[$key]);
+                        break;
                 }
 
                 if ($error) {

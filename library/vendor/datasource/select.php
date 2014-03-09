@@ -79,16 +79,17 @@ class Select extends Delete
     {
         if (is_array($column) || is_object($column)) {
             $method = __METHOD__;
+            $self = $this;
             array_walk(
                 $column,
-                function ($value, $key) use ($method, $this) {
+                function ($value, $key) use ($method, $self) {
                     $value = array($value);
 
                     if (is_string($key)) {
                         array_unshift($value, $key);
                     }
 
-                    call_user_func_array(array($this, $method), $value);
+                    call_user_func_array(array($self, $method), $value);
                 }
             );
         } else {

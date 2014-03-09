@@ -56,6 +56,10 @@ class Object implements ArrayAccess, IteratorAggregate, JsonSerializable
 
     public function __get($name)
     {
+        if (!isset($this->_member[$name])) {
+            return false;
+        }
+
         return $this->_member[$name];
     }
 
@@ -122,10 +126,6 @@ class Object implements ArrayAccess, IteratorAggregate, JsonSerializable
 
         if (!array_key_exists($offset, $this->_member)) {
             $this->__set($offset, new self($offset, $this));
-        }
-
-        if (!($this->_member[$offset] instanceof self)) {
-            throw new OutOfRangeException("Out of Range: '{$offset}'");
         }
 
         return $this->_member[$offset];

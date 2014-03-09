@@ -44,21 +44,68 @@ namespace Vendor {
 
 namespace {
 
-    class API extends Vendor\API {}
-    abstract class AppController extends Vendor\MVC\Controller {}
-    class AppDispatcher extends Vendor\MVC\Dispatcher {}
-    class AppModel extends Vendor\MVC\Model {}
-    class AppRequest extends Vendor\MVC\Request {}
-    class AppResponse extends Vendor\MVC\Response {}
-    class AppRouter extends Vendor\MVC\Router {}
-    class AppView extends Vendor\MVC\View {}
-    class DataBase extends Vendor\DataBase {}
-    class DataSource extends Vendor\DataSource {}
-    class Encrypter extends Vendor\Encrypter {}
-    class OAuth extends Vendor\OAuth {}
-    class OAuthAPI extends Vendor\OAuthAPI {}
-    class Object extends Vendor\Object {}
-    class URL extends Vendor\URL {}
-    class XML extends Vendor\XML {}
+    class API extends Vendor\API
+    {
+    }
+
+    abstract class AppController extends Vendor\MVC\Controller
+    {
+    }
+
+    class AppDispatcher extends Vendor\MVC\Dispatcher
+    {
+    }
+
+    class AppModel extends Vendor\MVC\Definition
+    {
+    }
+
+    class AppRequest extends Vendor\MVC\Request
+    {
+    }
+
+    class AppResponse extends Vendor\MVC\Response
+    {
+    }
+
+    class AppRouter extends Vendor\MVC\Router
+    {
+    }
+
+    class AppView extends Vendor\MVC\View
+    {
+    }
+
+    class DataBase extends Vendor\DataBase
+    {
+    }
+
+    class DataSource extends Vendor\DataSource
+    {
+    }
+
+    class Encrypter extends Vendor\Encrypter
+    {
+    }
+
+    class OAuth extends Vendor\OAuth
+    {
+    }
+
+    class OAuthAPI extends Vendor\OAuthAPI
+    {
+    }
+
+    class Object extends Vendor\Object
+    {
+    }
+
+    class URL extends Vendor\URL
+    {
+    }
+
+    class XML extends Vendor\XML
+    {
+    }
 
 }

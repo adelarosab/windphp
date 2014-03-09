@@ -99,16 +99,20 @@ class Delete extends Query
     {
         $argv = array_slice(func_get_args(), 1);
 
-        if (isset($argv[0]) && is_array($argv[0]) || is_object($argv[0])) {
+        if (isset($argv[0]) && (is_array($argv[0]) || is_object($argv[0]))) {
+            $self = $this;
             array_pop($this->where);
             array_walk(
-                $argv,
-                function ($value, $key) use ($method, $this) {
+                $argv[0],
+                function ($value, $key) use ($method, $self) {
+                    $value = [$value];
+
                     if (is_string($key)) {
-                        array_unshift($value, "`{$key}` = ?");
+                        $key = str_replace("``", "`", "`{$key}` = ?");
+                        array_unshift($value, $key);
                     }
 
-                    call_user_func_array(array($this, $method), $value);
+                    call_user_func_array(array($self, $method), $value);
                 }
             );
         } else {
@@ -123,16 +127,17 @@ class Delete extends Query
     {
         if (is_array($table) || is_object($table)) {
             $method = __METHOD__;
+            $self = $this;
             array_walk(
                 $table,
-                function ($value, $key) use ($method, $this) {
+                function ($value, $key) use ($method, $self) {
                     $value = array($value);
 
                     if (is_string($key)) {
                         array_unshift($value, $key);
                     }
 
-                    call_user_func_array(array($this, $method), $value);
+                    call_user_func_array(array($self, $method), $value);
                 }
             );
         } else {
@@ -158,16 +163,17 @@ class Delete extends Query
     {
         if (is_array($column) || is_object($column)) {
             $method = __METHOD__;
+            $self = $this;
             array_walk(
                 $column,
-                function ($value, $key) use ($method, $this) {
+                function ($value, $key) use ($method, $self) {
                     $value = array($value);
 
                     if (is_string($key)) {
                         array_unshift($value, $key);
                     }
 
-                    call_user_func_array(array($this, $method), $value);
+                    call_user_func_array(array($self, $method), $value);
                 }
             );
         } else {
@@ -182,8 +188,11 @@ class Delete extends Query
 
     public function orWhere($condition)
     {
+        $argv = func_get_args();
+        array_unshift($argv, __METHOD__);
+
         $this->where[] = 'OR';
-        call_user_func_array(array($this, '_where'), func_get_args());
+        call_user_func_array(array($this, '_where'), $argv);
 
         return $this;
     }
@@ -195,8 +204,11 @@ class Delete extends Query
 
     public function where($condition)
     {
+        $argv = func_get_args();
+        array_unshift($argv, __METHOD__);
+
         $this->where[] = 'AND';
-        call_user_func_array(array($this, '_where'), func_get_args());
+        call_user_func_array(array($this, '_where'), $argv);
 
         return $this;
     }

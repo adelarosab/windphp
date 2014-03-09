@@ -2,15 +2,11 @@
 
 /**
  *
- * @author      Adrian de la Rosa Bretin
- * @version     1.0 (11/03/2012)
- * @version     1.1 (05/28/2013)
- *              Ordered array of arguments to fetch.
- *
  * This class abstracts url requests as an API, using PROTECTED methods for
  * generating request's information.
  *
- * @copyright   La Cuarta Edad
+ * @author    Adrian de la Rosa Bretin <adrian.delarosab@gmail.com>
+ * @copyright 2013 A Tale Company
  *
  */
 
@@ -30,6 +26,18 @@ abstract class API
         $this->connector = new URL();
     }
 
+    protected function debug($message)
+    {
+        if (self::$DEBUG & DEBUG_API) {
+            echo str_pad('', 75, '-') . PHP_EOL;
+            echo 'API' . PHP_EOL;
+            echo str_pad('', 75, '=') . PHP_EOL;
+            echo $message . PHP_EOL;
+            echo str_pad('', 75, '*') . PHP_EOL;
+        }
+
+    }
+
     final public function __call($argv0, $argv)
     {
         if (!method_exists($this, $argv0)) {
@@ -43,28 +51,12 @@ abstract class API
             'options' => array()
         );
 
-        $argvDebug = $argv;
+        $this->debug("{$argv0}(" . implode(', ', $argv) . ')');
 
         $argv = array_merge(
             $default,
             call_user_func_array(array($this, $argv0), $argv)
         );
-
-        if (self::$DEBUG & DEBUG_API) {
-            $argvDebug = array_map(
-                function ($value) {
-                    return (strlen($value) > 512) ? 'file' : $value;
-                },
-                $argvDebug
-            );
-
-            URL::$DEBUG = self::$DEBUG;
-            print str_pad('', 75, '=') . PHP_EOL;
-            print 'API' . PHP_EOL;
-            print str_pad('', 75, '=') . PHP_EOL;
-            print "{$argv0}(" . implode(', ', $argvDebug) . ')' . PHP_EOL;
-            print str_pad('', 75, '*') . PHP_EOL;
-        }
 
         return call_user_func_array(
             array($this->connector, 'fetch'),

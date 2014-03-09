@@ -62,7 +62,8 @@ class URL extends Request
         $method = null,
         array $data = array(),
         array $options = array()
-    ) {
+    )
+    {
         $this->url((isset($url)) ? $url : $this->url());
         $this->method((isset($method)) ? $method : $this->method());
         if (!empty($data)) {

@@ -89,4 +89,9 @@ class Response implements ArrayAccess, IteratorAggregate
     {
         return $this->affectedRows;
     }
+
+    public function toArray()
+    {
+        return $this->data;
+    }
 }
